@@ -1,0 +1,9 @@
+pandas
+openpyxl
+requests
+selenium
+webdriver-manager
+matplotlib
+seaborn
+plotly
+docx2txt
