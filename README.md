@@ -1,69 +1,84 @@
-# NCKU-lab-3GPP-analysis
-Python爬蟲－從3GPP歷年會議紀錄分析企業標準化策略
+# 3GPP Strategy Miner
 
+A data mining pipeline that scrapes and analyzes 3GPP meeting records to study corporate standardization strategies — built for academic research at NCKU.
 
+## Pipeline Overview
 
+```
+3GPP Portal / Excel Work Plan
+        │
+        ▼
+┌─────────────────────────────┐
+│  Work Item Analysis (01–05) │
+│  • Batch download 2,813 ZIPs│
+│  • Parse 812 DOCX files     │
+│  • Build WIR–member dyads   │
+└────────────┬────────────────┘
+             │
+             ▼
+┌─────────────────────────────┐
+│  Specification Analysis     │
+│  • Selenium scraping        │
+│  • Spec relationship graph  │
+│  • SPR change history       │
+└────────────┬────────────────┘
+             │
+             ▼
+     Excel / CSV outputs
+     + Visualization charts
+```
 
-## 一、Work Item分析內容
+## Tech Stack
 
-### （一）自動下載、解壓縮並爬取會議紀錄文件
-![WI資料表](https://github.com/pei9564/NCKU-lab-3GPP-analysis/assets/103319735/33c09f6a-254a-4a69-8f60-552d46319f64)
-![爬取內容1](https://github.com/pei9564/NCKU-lab-3GPP-analysis/assets/103319735/858268c5-a85b-4e15-aa3a-7db55440bf2c)
-![爬取內容2](https://github.com/pei9564/NCKU-lab-3GPP-analysis/assets/103319735/f88e45ea-46e2-4dfa-891c-e058b8839845)
-1. 自動下載excel檔中所有zip檔案並
-2. 解壓縮，並過濾pdf與excel檔案
-3. 使用Excel VBA將doc轉換成docx
-4. 爬取所有整理好的docx檔
-5. 檢視爬取失敗的檔案
+| Category | Tools |
+|---|---|
+| Web Scraping | `selenium`, `requests`, `openpyxl` (hyperlink extraction) |
+| File Processing | `zipfile` (in-memory), `docx2txt`, `re` |
+| Data Analysis | `pandas`, `matplotlib`, `seaborn`, `plotly` |
 
-### （二）整理WI資料表
-1. 新增WIR所屬企業：從WIR name, WIR email整理
-2. 新增下載狀況：該WI是否有連結、以及是否有下載成功
-3. 新增專案完成度：以專案是否完成取代專案完成比率
-4. 新增TSG分類：分成RAN、SA、CT
+## Scale
 
-### （三）合併WI資料表至SUP資料表、建立company overview
-1. 整理爬下來的supporting member表格
-2. 統一WI表格中WIR與SUP企業名稱
-3. 統一supporting member表格中WIR與SUP企業名稱
-4. 合併WI表格到supporting member表格中
-5. 整理company overview表格：所有企業在不同版本參與WI次數
-6. 拆分成TSG和RAN兩個版本輸出
-   
-### （四）建立每個release的WIR-supporting member dyads
-1. Generate Dyad data (for Ucinet) - supporting member to rapporteur
-   
-### （五）compute reputation & status
-1. 建立Dyad資料－依變數、自變數、控制變數
+- **2,813** ZIP archives downloaded from Excel hyperlinks
+- **812** DOCX meeting documents parsed
+- **45,753** supporting member records generated
+- **4,137** unique specifications scraped
+- **828** company-to-company collaboration relationships extracted
 
+## Key Technical Highlights
 
-## 二、Specification分析內容
+**In-memory ZIP extraction** — downloads and decompresses without touching disk, using `zipfile.ZipFile(io.BytesIO(response.content))` to avoid I/O bottleneck when processing thousands of files.
 
-### （一）2023.03.08 spec analysis
-1. 篩選提交至Work plan之specification資料並補上SPR企業
-2. 整理表格資料
-    * 設定Tech Across Type: 技術跨越型態
-    * 整理Primary Resp Grp(C, S, R)至TSG欄位
-    * 統一企業名稱
-    * 新增Country: SPR企業所屬國家
-3. 趨勢圖分析
-    * 華為在不同技術時代下之資源策略佈局
-    * Top 10 國家參與程度 (retired)
-    * 不同技術時代與TSG－企業/國家投入程度
-    * 企業/國家投入在跨技術程度
-4. 其他分析
-    * 各技術時代中，未提交至WP之spec數量
-    * 企業投入最多之spec與次數
-    * 各spec所更新之總版本數量
+**Selenium scraping on dynamic content** — handles button clicks, wait states, and XPath-based table extraction from 3GPP's JavaScript-rendered portal pages.
 
-### （二）2023.03.08 spec relationship
-1. 爬取parent spec和child spec的連結
-2. 以企業名稱呈現parent & child之連結
-   
-![範例](https://github.com/pei9564/NCKU-lab-3GPP-analysis/assets/103319735/d9e7f4bc-b1ab-47fd-9301-c2da85cd6e74)
+**Regex-based company name normalization** — fuzzy-matches 30+ major telecom companies across inconsistent naming conventions (abbreviations, capitalization, typos) before any data joins.
 
-### （三）2023.04.08 spec history
-爬取SPR變更紀錄
+**Relationship graph construction** — maps parent/child spec hierarchies into company-level collaboration edges, producing a knowledge graph of 828 relationships from 4,251 raw spec links.
 
-![範例](https://github.com/pei9564/NCKU-lab-3GPP-analysis/assets/103319735/bb1b3040-9b3b-4a39-8fce-c21edd47fae8)
+---
 
+## Notebooks
+
+### Work Item Analysis
+
+| Notebook | Description |
+|---|---|
+| [`01_download_extract_and_scrape`](work-item-analysis/01_download_extract_and_scrape.ipynb) | Batch-downloads ZIP files from Excel hyperlinks, extracts in-memory, parses DOCX meeting records via regex |
+| [`02_clean_work_item_table`](work-item-analysis/02_clean_work_item_table.ipynb) | Enriches WI table: infers company from WIR name/email, adds download status and TSG classification |
+| [`03_merge_wi_sup_and_company_overview`](work-item-analysis/03_merge_wi_sup_and_company_overview.ipynb) | Normalizes company names, merges WI and supporting member tables, builds company participation overview |
+| [`04_build_wir_member_dyads`](work-item-analysis/04_build_wir_member_dyads.ipynb) | Generates dyad data (WIR ↔ supporting member pairs) per release, formatted for Ucinet |
+| [`05_compute_reputation_and_status`](work-item-analysis/05_compute_reputation_and_status.ipynb) | Constructs dependent/independent/control variable tables for network analysis |
+
+![WI Table](https://github.com/pei9564/NCKU-lab-3GPP-analysis/assets/103319735/33c09f6a-254a-4a69-8f60-552d46319f64)
+![Scraped Content 1](https://github.com/pei9564/NCKU-lab-3GPP-analysis/assets/103319735/858268c5-a85b-4e15-aa3a-7db55440bf2c)
+![Scraped Content 2](https://github.com/pei9564/NCKU-lab-3GPP-analysis/assets/103319735/f88e45ea-46e2-4dfa-891c-e058b8839845)
+
+### Specification Analysis
+
+| Notebook | Description |
+|---|---|
+| [`spec_analysis`](specification-analysis/spec_analysis.ipynb) | Scrapes SPR company data via Selenium, normalizes names, maps specs to countries, generates trend visualizations across 2G–5G technology eras |
+| [`spec_relationship`](specification-analysis/spec_relationship.ipynb) | Crawls parent/child spec links using XPath, transforms into company-level relationship graph |
+| [`spec_history`](specification-analysis/spec_history.ipynb) | Scrapes SPR change history to track ownership shifts over time |
+
+![Spec Relationship Example](https://github.com/pei9564/NCKU-lab-3GPP-analysis/assets/103319735/d9e7f4bc-b1ab-47fd-9301-c2da85cd6e74)
+![Spec History Example](https://github.com/pei9564/NCKU-lab-3GPP-analysis/assets/103319735/bb1b3040-9b3b-4a39-8fce-c21edd47fae8)
